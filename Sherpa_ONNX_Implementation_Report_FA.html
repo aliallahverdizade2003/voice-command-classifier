@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>گزارش پیاده‌سازی Sherpa-ONNX برای فرمان‌های اولتراسوند</title>
+<style>
+:root{color-scheme:light;--ink:#172033;--muted:#596579;--line:#dce2ea;--soft:#f4f7fb;--blue:#174ea6;--warn:#8a4b08}
+*{box-sizing:border-box}body{margin:0;background:#f7f9fc;color:var(--ink);font-family:Tahoma,Arial,sans-serif;line-height:1.95}
+main{max-width:980px;margin:36px auto;padding:0 22px 50px}.sheet{background:#fff;border:1px solid var(--line);border-radius:18px;padding:34px;box-shadow:0 8px 30px #18253a0b}
+h1{font-size:27px;line-height:1.5;margin:0 0 10px}h2{font-size:20px;margin:30px 0 8px;border-bottom:1px solid var(--line);padding-bottom:7px}h3{font-size:16px;margin:20px 0 5px}
+p,li{font-size:14px}small,.muted{color:var(--muted)}code{direction:ltr;unicode-bidi:embed;background:#f0f3f8;padding:2px 6px;border-radius:5px;font-family:Consolas,monospace}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}th,td{border:1px solid var(--line);padding:9px;text-align:right;vertical-align:top}th{background:var(--soft)}
+.note{border-right:4px solid var(--blue);background:#f2f6ff;padding:12px 16px;border-radius:8px;margin:16px 0}
+.warning{border-right:4px solid #d18a28;background:#fff8ed;padding:12px 16px;border-radius:8px;margin:16px 0}
+a{color:var(--blue);word-break:break-word}.meta{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.pill{border:1px solid var(--line);padding:4px 10px;border-radius:20px;font-size:12px;color:var(--muted)}
+footer{border-top:1px solid var(--line);margin-top:30px;padding-top:14px;color:var(--muted);font-size:12px}
+@media(max-width:600px){.sheet{padding:20px}h1{font-size:22px}}
+</style>
+</head>
+<body><main><article class="sheet">
+<h1>گزارش پیاده‌سازی تشخیص فرمان‌های اولتراسوند با Sherpa-ONNX</h1>
+<p class="muted">مخزن: <a href="https://github.com/aliallahverdizade2003/voice-command-classifier">aliallahverdizade2003/voice-command-classifier</a></p>
+<div class="meta"><span class="pill">شاخه مستقل: feature/sherpa-onnx-keyword-spotting</span><span class="pill">نسخه Colab</span><span class="pill">۱۴ فرمان مثبت</span><span class="pill">Hey Nova بدون تغییر</span></div>
+
+<h2>۱. هدف تغییر</h2>
+<p>هدف، جایگزینی پیاده‌سازی تشخیص ۱۴ فرمان در <code>other_commands.ipynb</code> با یک نمونه مبتنی بر مدل ازپیش‌آموزش‌دیده Sherpa-ONNX است. محدوده تغییر فقط همین نوت‌بوک و افزودن این گزارش است. نوت‌بوک <code>Hey_Nova.ipynb</code> عمداً خارج از محدوده باقی مانده است.</p>
+
+<h2>۲. روش قبلی چه می‌کرد؟</h2>
+<ul>
+<li>خواندن پوشه‌های ۱۵گانه دیتاست از Google Drive، شامل ۱۴ فرمان و کلاس <code>14_negative</code>.</li>
+<li>ممیزی فایل‌های صوتی و بارگذاری صوت با Librosa.</li>
+<li>بازنمونه‌گیری به ۱۶ کیلوهرتز و تبدیل هر نمونه به طول ثابت ۳ ثانیه.</li>
+<li>استخراج Mel Spectrogram با ۴۰ باند، سپس Adaptive PCEN با GRU دوطرفه.</li>
+<li>طبقه‌بندی با CNN سه‌لایه و خروجی ۱۵ کلاسه.</li>
+<li>تقسیم تصادفی stratified به ۸۰٪ آموزش و ۲۰٪ اعتبارسنجی و آموزش تا ۱۵ epoch؛ ذخیره بهترین checkpoint.</li>
+<li>در بخش ضبط مرورگر، استخراج قطعه گفتاری و ارائه سه پیش‌بینی برتر مدل.</li>
+</ul>
+
+<h2>۳. روش جدید چه می‌کند؟</h2>
+<p>نوت‌بوک جدید مدل انگلیسی <code>sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01</code> را دریافت می‌کند. سپس عبارت‌های فرمان با همان فایل‌های <code>tokens.txt</code> و <code>bpe.model</code> مدل به واحدهای BPE تبدیل می‌شوند و فایل Keywords ساخته می‌شود. در پایان، شیء <code>sherpa_onnx.KeywordSpotter</code> با فایل‌های ONNX و Keywords مقداردهی اولیه می‌شود.</p>
+<ol>
+<li>نصب <code>sherpa-onnx</code>، <code>sentencepiece</code>، <code>pypinyin</code>، <code>librosa</code> و <code>soundfile</code>.</li>
+<li>اتصال Google Drive و تعیین همان مسیر دیتاست قبلی.</li>
+<li>ممیزی وجود ۱۵ پوشه و خوانایی فایل‌های صوتی.</li>
+<li>دانلود و نگهداری مدل ازپیش‌آموزش‌دیده در Drive.</li>
+<li>تبدیل ۱۴ عبارت فرمان به BPE و تولید فایل Keywords با برچسب پوشه در انتهای هر خط.</li>
+<li>ساخت Keyword Spotter با نرخ نمونه‌برداری ۱۶ کیلوهرتز و feature dimension برابر ۸۰.</li>
+<li>ذخیره Manifest شامل نسخه مدل، فرمان‌ها، مسیرها و پارامترها.</li>
+</ol>
+
+<h2>۴. نگاشت فرمان‌ها</h2>
+<table><thead><tr><th>پوشه دیتاست</th><th>عبارت هدف</th></tr></thead><tbody>
+<tr><td><code>00_capture_image</code></td><td dir="ltr">CAPTURE IMAGE</td></tr><tr><td><code>01_capture_cine</code></td><td dir="ltr">CAPTURE CINE</td></tr><tr><td><code>02_increase_depth</code></td><td dir="ltr">INCREASE DEPTH</td></tr><tr><td><code>03_decrease_depth</code></td><td dir="ltr">DECREASE DEPTH</td></tr><tr><td><code>04_increase_gain</code></td><td dir="ltr">INCREASE GAIN</td></tr><tr><td><code>05_decrease_gain</code></td><td dir="ltr">DECREASE GAIN</td></tr><tr><td><code>06_freeze</code></td><td dir="ltr">FREEZE</td></tr><tr><td><code>07_toggle_auto_gain</code></td><td dir="ltr">TOGGLE AUTO GAIN</td></tr><tr><td><code>08_center_guide</code></td><td dir="ltr">CENTER GUIDE</td></tr><tr><td><code>09_color_doppler</code></td><td dir="ltr">COLOR DOPPLER</td></tr><tr><td><code>10_power_doppler</code></td><td dir="ltr">POWER DOPPLER</td></tr><tr><td><code>11_needle_enhance</code></td><td dir="ltr">NEEDLE ENHANCE</td></tr><tr><td><code>12_b_mode</code></td><td dir="ltr">B MODE</td></tr><tr><td><code>13_m_mode</code></td><td dir="ltr">M MODE</td></tr>
+</tbody></table>
+<p>کلاس <code>14_negative</code> به‌عنوان keyword ثبت نمی‌شود. این پوشه برای سنجش فعال‌سازی اشتباه در مرحله ارزیابی آینده نگه داشته می‌شود.</p>
+
+<h2>۵. تفاوت نسخه اول و نسخه جدید</h2>
+<table><thead><tr><th>موضوع</th><th>نسخه اول</th><th>نسخه Sherpa</th></tr></thead><tbody>
+<tr><td>مدل</td><td>Adaptive PCEN + GRU + CNN اختصاصی</td><td>Zipformer Transducer ازپیش‌آموزش‌دیده</td></tr>
+<tr><td>استفاده از دیتاست</td><td>برای آموزش و اعتبارسنجی وزن‌ها</td><td>در این نسخه فقط ممیزی و آماده‌سازی برای ارزیابی بعدی</td></tr>
+<tr><td>ورودی پردازشی</td><td>Mel با ۴۰ باند و طول ثابت ۳ ثانیه</td><td>موج صوتی به موتور Sherpa؛ استخراج ویژگی مطابق مدل با ۸۰ بعد</td></tr>
+<tr><td>تعداد خروجی</td><td>۱۵ کلاس شامل negative</td><td>۱۴ عبارت Keyword؛ عدم تشخیص با رشته خالی</td></tr>
+<tr><td>آموزش</td><td>آموزش محلی مدل با ۱۵ epoch</td><td>بدون آموزش یا Fine-tuning وزن‌های مدل</td></tr>
+<tr><td>افزودن فرمان</td><td>تغییر کلاس‌ها و آموزش دوباره</td><td>تولید مجدد فایل Keywords با BPE</td></tr>
+<tr><td>خروجی inference</td><td>احتمال Softmax و Top-3</td><td>عبارت Keyword تشخیص‌داده‌شده یا خروجی خالی</td></tr>
+<tr><td>ضبط میکروفون و ارزیابی</td><td>دو سلول ضبط و پیش‌بینی نمونه‌ای</td><td>عمداً به مرحله بعد موکول شده است</td></tr>
+</tbody></table>
+
+<h2>۶. پارامترهای آغازین</h2>
+<table><tbody>
+<tr><th>پارامتر</th><th>مقدار</th></tr>
+<tr><td>Sample rate</td><td>۱۶٬۰۰۰ Hz</td></tr>
+<tr><td>Feature dimension</td><td>۸۰</td></tr>
+<tr><td>Provider</td><td>CPU</td></tr>
+<tr><td>Threads</td><td>۲</td></tr>
+<tr><td>Max active paths</td><td>۴</td></tr>
+<tr><td>Keywords score</td><td>۱٫۰</td></tr>
+<tr><td>Keywords threshold</td><td>۰٫۲۵</td></tr>
+<tr><td>Trailing blanks</td><td>۸</td></tr>
+</tbody></table>
+<p>این مقادیر صرفاً نقطه شروع برای راه‌اندازی‌اند. آستانه KWS معادل احتمال Softmax مدل قبلی نیست و هنوز با داده‌های پروژه یا محیط بیمارستان کالیبره نشده است.</p>
+
+<h2>۷. محدودیت مهم و معنای «کار با داده‌های فعلی»</h2>
+<div class="warning"><strong>این نوت‌بوک مدل Sherpa را با دیتاست شما آموزش نمی‌دهد.</strong> مدل از قبل آموزش دیده و داده‌های پروژه در این مرحله فقط برای کنترل ساختار و خوانایی بررسی می‌شوند. فایل‌های صوتی فعلی هنوز برای محاسبه دقت، نرخ رد فرمان، نرخ فعال‌سازی اشتباه یا تنظیم آستانه‌ها وارد چرخه ارزیابی نشده‌اند.</div>
+<p>پس این تغییر یک جایگزین مبتنی بر مدل آماده برای آزمایش است، نه نسخه آموزش‌دیده یا اعتبارسنجی‌شده روی فرمان‌های اولتراسوند. ممکن است برخی فرمان‌ها به علت تلفظ، شباهت آوایی یا تفاوت دامنه گفتار به‌خوبی تشخیص داده نشوند. به‌ویژه جفت‌های CAPTURE IMAGE/CAPTURE CINE، INCREASE/DECREASE DEPTH و COLOR/POWER DOPPLER باید جداگانه ارزیابی شوند.</p>
+
+<h2>۸. موارد عمداً انجام‌نشده</h2>
+<ul>
+<li>اجرای تست روی فایل‌های دیتاست و محاسبه accuracy یا confusion matrix.</li>
+<li>آزمایش پوشه negative و اندازه‌گیری False Activations per Hour.</li>
+<li>آزمایش میکروفون زنده و سنجش تأخیر.</li>
+<li>تنظیم آستانه‌ها با داده‌های واقعی.</li>
+<li>اتصال تشخیص به فرمان کنترلی دستگاه.</li>
+</ul>
+
+<h2>۹. روش اجرا در Google Colab</h2>
+<ol>
+<li>از Branch زیر فایل <code>other_commands.ipynb</code> را باز و در Colab اجرا کنید: <a href="https://github.com/aliallahverdizade2003/voice-command-classifier/blob/feature/sherpa-onnx-keyword-spotting/other_commands.ipynb">باز کردن نوت‌بوک جدید</a>.</li>
+<li>مطمئن شوید پوشه <code>Ultrasound_Voice_Dataset</code> در ریشه My Drive و با همان ۱۵ نام پوشه موجود است.</li>
+<li>سلول‌ها را به ترتیب اجرا کنید و مجوز اتصال Google Drive را بدهید.</li>
+<li>در اجرای اول، مدل دانلود و در <code>MyDrive/Sherpa_ONNX_Models</code> نگهداری می‌شود. در اجراهای بعدی از همان نسخه ذخیره‌شده استفاده خواهد شد.</li>
+<li>در پایان باید پیام آماده‌بودن KeywordSpotter و ۱۴ keyword نمایش داده شود. این پیام فقط موفقیت پیکربندی را نشان می‌دهد، نه صحت تشخیص صوت.</li>
+</ol>
+
+<h2>۱۰. فایل‌ها و وضعیت تغییرات</h2>
+<ul>
+<li><a href="https://github.com/aliallahverdizade2003/voice-command-classifier/blob/feature/sherpa-onnx-keyword-spotting/other_commands.ipynb">other_commands.ipynb — نسخه جایگزین Sherpa-ONNX</a></li>
+<li><a href="https://github.com/aliallahverdizade2003/voice-command-classifier/blob/feature/sherpa-onnx-keyword-spotting/Sherpa_ONNX_Implementation_Report_FA.html">Sherpa_ONNX_Implementation_Report_FA.html — همین گزارش</a></li>
+<li><a href="https://github.com/aliallahverdizade2003/voice-command-classifier/tree/feature/sherpa-onnx-keyword-spotting">مشاهده کل Branch</a></li>
+<li><a href="https://github.com/aliallahverdizade2003/voice-command-classifier/blob/main/Hey_Nova.ipynb">Hey_Nova.ipynb در main — خارج از تغییر</a></li>
+</ul>
+<div class="note">ساخت Branch و جایگزینی نوت‌بوک در همان Branch انجام شده است. فایل‌های main تغییر نکرده‌اند. این گزارش وضعیت پیاده‌سازی و محدودیت‌ها را ثبت می‌کند؛ اجرای واقعی در نشست Google Colab هنوز انجام نشده است.</div>
+
+<footer>گزارش فنی پروژه تشخیص فرمان صوتی اولتراسوند — تهیه‌شده برای مستندسازی نسخه آزمایشی Sherpa-ONNX.</footer>
+</article></main></body></html>

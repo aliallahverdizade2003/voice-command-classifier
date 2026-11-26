@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>گزارش اصلاح چرخه آموزش و بارگذاری مدل</title>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;line-height:1.9;max-width:850px;margin:36px auto;padding:0 20px;color:#20242a;background:#fff}
+h1{font-size:1.55rem}h2{font-size:1.15rem;margin-top:26px;border-bottom:1px solid #ddd;padding-bottom:6px}
+code{direction:ltr;display:inline-block;background:#f2f4f7;padding:2px 6px;border-radius:4px}
+pre{direction:ltr;text-align:left;background:#f4f6f8;padding:12px;border-radius:8px;overflow:auto}
+a{color:#1559a6}li{margin:5px 0}.note{background:#f5f7fa;padding:12px 16px;border-radius:8px}
+</style>
+</head>
+<body>
+<h1>گزارش اصلاح آموزش و استفاده مجدد از مدل</h1>
+<p><strong>مخزن پروژه:</strong> <a href="https://github.com/aliallahverdizade2003/voice-command-classifier">https://github.com/aliallahverdizade2003/voice-command-classifier</a></p>
+<p><strong>Commit:</strong> <a href="https://github.com/aliallahverdizade2003/voice-command-classifier/commit/7f92665966dd4b2f74c18d2322fc36420c6cce4f">7f92665966dd4b2f74c18d2322fc36420c6cce4f</a></p>
+
+<h2>۱. تعریف مشکل</h2>
+<p>در نوت‌بوک <code>Hey_Nova.ipynb</code> با اجرای سلول آموزش، مدل هر بار از ابتدا ساخته و ۱۵ دور آموزش داده می‌شد؛ وزن‌ها نیز ذخیره نمی‌شدند. در <code>other_commands.ipynb</code> وزن‌ها ذخیره می‌شدند، اما مسیر بارگذاری آن‌ها وجود نداشت؛ بنابراین اجرای مجدد نوت‌بوک دوباره دیتاست را آماده و مدل را آموزش می‌داد.</p>
+
+<h2>۲. راه‌حل اعمال‌شده</h2>
+<p>در هر دو نوت‌بوک گزینه <code>FORCE_TRAIN</code> اضافه شد. حالت پیش‌فرض <code>False</code> است: اگر فایل مدل موجود باشد، وزن‌ها بارگذاری می‌شوند؛ اگر موجود نباشد، آموزش انجام و مدل ذخیره می‌شود. با قرار دادن گزینه روی <code>True</code> آموزش از ابتدا اجرا و فایل وزن قبلی جایگزین می‌شود.</p>
+
+<h2>۳. کدهای اضافه‌شده</h2>
+<p>کنترل اصلی در هر دو نوت‌بوک:</p>
+<pre>FORCE_TRAIN = False</pre>
+<p>در Hey Nova، وزن‌ها با <code>state_dict</code> ذخیره و هنگام استفاده مجدداً بارگذاری می‌شوند:</p>
+<pre>if os.path.isfile(MODEL_PATH) and not FORCE_TRAIN:
+    trained_model = HeyNovaKWSModel().to(device)
+    trained_model.load_state_dict(
+        torch.load(MODEL_PATH, map_location=device, weights_only=True)
+    )
+else:
+    trained_model = train_model(DATASET_PATH, epochs=15)
+    torch.save(trained_model.state_dict(), MODEL_PATH)</pre>
+<p>در مدل ۱۵ کلاسه، checkpoint موجود شامل وزن‌ها و تنظیمات مدل است؛ در حالت بارگذاری، اسکن دیتاست، آماده‌سازی داده و حلقه آموزش رد می‌شوند. معماری و الگوریتم آموزش تغییر نکرده‌اند.</p>
+
+<h2>۴. نحوه استفاده از این پس</h2>
+<ul>
+<li><strong>استفاده از مدل آماده:</strong> مقدار <code>FORCE_TRAIN = False</code> باشد. در Hey Nova سلول‌های اتصال Drive و تعریف/بارگذاری مدل را اجرا کنید؛ در نوت‌بوک فرمان‌ها، سلول‌های ۱ تا ۵ و سپس سلول تست زنده (۹) را اجرا کنید. سلول آموزش در حالت بارگذاری خودکار رد می‌شود.</li>
+<li><strong>آموزش جدید:</strong> مقدار <code>FORCE_TRAIN = True</code> شود. در Hey Nova سلول‌های ۱ و ۲ را اجرا کنید. در نوت‌بوک فرمان‌ها سلول‌های ۱ تا ۶ را اجرا کنید. پس از آموزش، checkpoint جدید ذخیره می‌شود.</li>
+<li>پس از اتمام آموزش جدید، مقدار را دوباره به <code>False</code> برگردانید تا دفعات بعد مدل ذخیره‌شده بارگذاری شود.</li>
+</ul>
+<p class="note"><strong>نکته:</strong> پیش از آموزش، مسیر دیتاست و دسترسی Google Drive باید درست باشد. اجرای «Run all» در نوت‌بوک دوم برای حالت استفاده روزمره توصیه نمی‌شود؛ سلول‌های بررسی دیتاست و آموزش را فقط در حالت آموزش اجرا کنید.</p>
+
+<h2>۵. فایل‌های تغییرکرده</h2>
+<ul>
+<li><a href="https://github.com/aliallahverdizade2003/voice-command-classifier/blob/main/Hey_Nova.ipynb">Hey_Nova.ipynb</a></li>
+<li><a href="https://github.com/aliallahverdizade2003/voice-command-classifier/blob/main/other_commands.ipynb">other_commands.ipynb</a></li>
+</ul>
+<p>تغییرات در GitHub روی شاخه <code>main</code> ثبت و push شدند. اجرای واقعی روی نشست Google Colab در این مرحله انجام نشده است.</p>
+</body></html>
